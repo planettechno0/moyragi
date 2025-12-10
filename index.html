@@ -163,42 +163,57 @@
 
     <!-- FAB: Add Store -->
     <div class="fab-container">
-        <button class="fab-button" data-bs-toggle="modal" data-bs-target="#addStoreModal" title="افزودن فروشگاه">
+        <button class="fab-button" onclick="app.openAddStoreModal()" title="افزودن فروشگاه">
             <i class="bi bi-plus-lg"></i>
         </button>
     </div>
 
-    <!-- Modal: Settings (Regions) -->
+    <!-- Modal: Settings (Regions & Backup) -->
     <div class="modal fade" id="settingsModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">مدیریت مناطق</h5>
+                    <h5 class="modal-title">تنظیمات</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
+                    <h6 class="fw-bold">مدیریت مناطق</h6>
                     <div class="input-group mb-3">
                         <input type="text" class="form-control" id="newRegionInput" placeholder="نام منطقه جدید...">
                         <button class="btn btn-success" type="button" onclick="app.addRegion()">افزودن</button>
                     </div>
-                    <ul class="list-group" id="regionList">
+                    <ul class="list-group mb-4" id="regionList">
                         <!-- Populated by JS -->
                     </ul>
+
+                    <hr>
+
+                    <h6 class="fw-bold mb-3">پشتیبان‌گیری و بازیابی</h6>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-outline-primary w-50" onclick="app.backupData()">
+                            <i class="bi bi-download"></i> دانلود بکاپ
+                        </button>
+                        <button class="btn btn-outline-warning w-50" onclick="document.getElementById('backupInput').click()">
+                            <i class="bi bi-upload"></i> بازیابی بکاپ
+                        </button>
+                        <input type="file" id="backupInput" accept=".json" class="d-none" onchange="app.restoreData(this)">
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Modal: Add Store -->
+    <!-- Modal: Add/Edit Store -->
     <div class="modal fade" id="addStoreModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">ثبت فروشگاه جدید</h5>
+                    <h5 class="modal-title" id="storeModalTitle">ثبت فروشگاه جدید</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
                     <form id="addStoreForm">
+                        <input type="hidden" id="storeId">
                         <div class="mb-3">
                             <label class="form-label">نام فروشگاه</label>
                             <input type="text" class="form-control" id="storeName" required>
@@ -207,11 +222,22 @@
                             <label class="form-label">آدرس</label>
                             <textarea class="form-control" id="storeAddress" rows="2"></textarea>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label">منطقه</label>
-                            <select class="form-select" id="storeRegion" required>
-                                <!-- Populated by JS -->
-                            </select>
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">منطقه</label>
+                                <select class="form-select" id="storeRegion" required>
+                                    <!-- Populated by JS -->
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">زمان ایده‌آل</label>
+                                <select class="form-select" id="storeIdealTime">
+                                    <option value="">انتخاب کنید...</option>
+                                    <option value="morning">صبح</option>
+                                    <option value="noon">ظهر</option>
+                                    <option value="night">شب</option>
+                                </select>
+                            </div>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">روزهای ویزیت</label>
@@ -308,17 +334,34 @@
                 5: 'جمعه'
             },
 
+            idealTimeMap: {
+                'morning': 'صبح',
+                'noon': 'ظهر',
+                'night': 'شب'
+            },
+
             init: function() {
                 this.loadData();
                 this.renderRegions(); // In modal and filters
                 this.renderStores();
 
-                // Event listener for modals to refresh dropdowns if needed
-                const addStoreModal = document.getElementById('addStoreModal');
-                addStoreModal.addEventListener('show.bs.modal', () => {
-                    this.populateRegionDropdown('storeRegion');
-                    document.getElementById('addStoreForm').reset();
-                });
+                // We handle modal opening manually via openAddStoreModal and editStore
+                // so we don't need a generic listener to populate/reset.
+                // However, we should ensure the region dropdown is always fresh when opening.
+                // We will do this inside the open/edit functions.
+            },
+
+            openAddStoreModal: function() {
+                this.populateRegionDropdown('storeRegion'); // Ensure dropdown is populated
+                document.getElementById('addStoreForm').reset();
+                document.getElementById('storeId').value = '';
+                document.getElementById('storeModalTitle').textContent = 'ثبت فروشگاه جدید';
+
+                // Reset checkboxes
+                document.querySelectorAll('.store-day-check').forEach(cb => cb.checked = false);
+
+                const modal = new bootstrap.Modal(document.getElementById('addStoreModal'));
+                modal.show();
             },
 
             loadData: function() {
@@ -343,6 +386,52 @@
                 localStorage.setItem('visitor_stores', JSON.stringify(this.data.stores));
                 // Re-render UI elements that depend on data
                 this.renderStores();
+            },
+
+            // --- Backup & Restore Logic ---
+
+            backupData: function() {
+                const data = {
+                    regions: this.data.regions,
+                    stores: this.data.stores
+                };
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `visitor_backup_${new Date().toISOString().slice(0,10)}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            },
+
+            restoreData: function(input) {
+                const file = input.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        if (data.regions && data.stores) {
+                            if(confirm('آیا مطمئن هستید؟ تمام داده‌های فعلی با فایل جایگزین خواهند شد.')) {
+                                this.data.regions = data.regions;
+                                this.data.stores = data.stores;
+                                this.saveData();
+                                this.renderRegions();
+                                alert('بازیابی با موفقیت انجام شد.');
+                            }
+                        } else {
+                            alert('فایل انتخاب شده معتبر نیست.');
+                        }
+                    } catch (error) {
+                        console.error(error);
+                        alert('خطا در خواندن فایل.');
+                    }
+                    input.value = ''; // Reset input
+                };
+                reader.readAsText(file);
             },
 
             // --- Region Logic ---
@@ -408,9 +497,11 @@
             // --- Store Logic ---
 
             saveStore: function() {
+                const id = document.getElementById('storeId').value;
                 const name = document.getElementById('storeName').value.trim();
                 const address = document.getElementById('storeAddress').value.trim();
                 const region = document.getElementById('storeRegion').value;
+                const idealTime = document.getElementById('storeIdealTime').value;
 
                 // Get checked days
                 const checkedDays = [];
@@ -423,23 +514,60 @@
                     return;
                 }
 
-                const newStore = {
-                    id: Date.now(),
-                    name,
-                    address,
-                    region,
-                    visitDays: checkedDays,
-                    visited: false,
-                    orders: []
-                };
+                if (id) {
+                    // Update existing
+                    const storeIndex = this.data.stores.findIndex(s => s.id == id);
+                    if (storeIndex > -1) {
+                        this.data.stores[storeIndex].name = name;
+                        this.data.stores[storeIndex].address = address;
+                        this.data.stores[storeIndex].region = region;
+                        this.data.stores[storeIndex].idealTime = idealTime;
+                        this.data.stores[storeIndex].visitDays = checkedDays;
+                    }
+                } else {
+                    // Create new
+                    const newStore = {
+                        id: Date.now(),
+                        name,
+                        address,
+                        region,
+                        idealTime,
+                        visitDays: checkedDays,
+                        visited: false,
+                        orders: []
+                    };
+                    this.data.stores.push(newStore);
+                }
 
-                this.data.stores.push(newStore);
                 this.saveData();
 
                 // Close modal
                 const modalEl = document.getElementById('addStoreModal');
                 const modal = bootstrap.Modal.getInstance(modalEl);
                 modal.hide();
+            },
+
+            editStore: function(storeId) {
+                const store = this.data.stores.find(s => s.id === storeId);
+                if (!store) return;
+
+                // Populate dropdown first so we can set the value
+                this.populateRegionDropdown('storeRegion');
+
+                document.getElementById('storeId').value = store.id;
+                document.getElementById('storeName').value = store.name;
+                document.getElementById('storeAddress').value = store.address || '';
+                document.getElementById('storeRegion').value = store.region;
+                document.getElementById('storeIdealTime').value = store.idealTime || '';
+                document.getElementById('storeModalTitle').textContent = 'ویرایش فروشگاه';
+
+                // Reset and Set checkboxes
+                document.querySelectorAll('.store-day-check').forEach(cb => {
+                    cb.checked = store.visitDays.includes(parseInt(cb.value));
+                });
+
+                const modal = new bootstrap.Modal(document.getElementById('addStoreModal'));
+                modal.show();
             },
 
             toggleVisit: function(storeId) {
@@ -555,6 +683,11 @@
                              daysBadges += `<span class="badge ${badgeClass} me-1">${this.daysMap[d]}</span>`;
                         });
 
+                        // Ideal Time Badge
+                        if (store.idealTime) {
+                            daysBadges += `<span class="badge bg-info text-dark me-1"><i class="bi bi-clock"></i> ${this.idealTimeMap[store.idealTime]}</span>`;
+                        }
+
                         // Generate Order History (Last 3)
                         let ordersHtml = '';
                         if (store.orders && store.orders.length > 0) {
@@ -562,8 +695,8 @@
                             ordersHtml += '<strong>۳ سفارش آخر:</strong><ul class="list-unstyled mb-0 mt-1">';
                             store.orders.slice(0, 3).forEach(o => {
                                 ordersHtml += `<li class="d-flex justify-content-between text-muted small">
-                                    <span>${o.date}: ${o.text}</span>
-                                    <span>${o.amount} ت</span>
+                                    <span>${this.escapeHtml(o.date)}: ${this.escapeHtml(o.text)}</span>
+                                    <span>${this.escapeHtml(o.amount)} ت</span>
                                 </li>`;
                             });
                             ordersHtml += '</ul></div>';
@@ -575,7 +708,12 @@
                             <div class="card h-100 ${store.visited ? 'visited' : ''}">
                                 <div class="card-body">
                                     <div class="d-flex justify-content-between align-items-start mb-2">
-                                        <h5 class="card-title fw-bold mb-0">${store.name}</h5>
+                                        <div>
+                                            <h5 class="card-title fw-bold mb-0">${this.escapeHtml(store.name)}</h5>
+                                            <button class="btn btn-link btn-sm p-0 text-decoration-none" onclick="app.editStore(${store.id})" title="ویرایش">
+                                                <i class="bi bi-pencil-square"></i> ویرایش
+                                            </button>
+                                        </div>
                                         <div class="form-check form-switch">
                                             <input class="form-check-input" type="checkbox"
                                                 ${store.visited ? 'checked' : ''}
@@ -583,9 +721,9 @@
                                         </div>
                                     </div>
                                     <h6 class="card-subtitle mb-2 text-muted">
-                                        <i class="bi bi-geo-alt-fill"></i> ${store.region}
+                                        <i class="bi bi-geo-alt-fill"></i> ${this.escapeHtml(store.region)}
                                     </h6>
-                                    <p class="card-text small mb-2">${store.address || 'بدون آدرس'}</p>
+                                    <p class="card-text small mb-2">${this.escapeHtml(store.address) || 'بدون آدرس'}</p>
 
                                     <div class="mb-3">
                                         ${daysBadges}
