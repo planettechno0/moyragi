@@ -190,7 +190,8 @@
 
             <div class="row mb-3">
                 <div class="col-md-4">
-                    <input type="text" class="form-control" id="orderDateFilter" placeholder="فیلتر تاریخ (مثلاً ۱۴۰۳/۰۱/۰۱)..." oninput="app.renderAllOrders()">
+                    <label class="form-label small text-muted">فیلتر تاریخ</label>
+                    <input type="date" class="form-control" id="orderDateFilter" onchange="app.renderAllOrders()">
                 </div>
             </div>
 
@@ -976,7 +977,7 @@
             renderAllOrders: function() {
                 const list = document.getElementById('allOrdersList');
                 const noOrdersMsg = document.getElementById('noOrdersMsg');
-                const dateFilter = document.getElementById('orderDateFilter').value.trim();
+                const dateFilterInput = document.getElementById('orderDateFilter');
 
                 if (!list) return;
 
@@ -994,8 +995,12 @@
                 });
 
                 // Filter
-                if (dateFilter) {
-                    allOrders = allOrders.filter(order => order.date.includes(dateFilter));
+                if (dateFilterInput.value) {
+                    const [y, m, d] = dateFilterInput.value.split('-');
+                    const dateObj = new Date(y, m - 1, d);
+                    const persianDate = dateObj.toLocaleDateString('fa-IR');
+
+                    allOrders = allOrders.filter(order => order.date === persianDate);
                 }
 
                 // Sort by ID desc
