@@ -318,16 +318,17 @@
         </div>
     </div>
 
-    <!-- Modal: Add Order -->
+    <!-- Modal: Add/Edit Order -->
     <div class="modal fade" id="orderModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">ثبت سفارش</h5>
+                    <h5 class="modal-title" id="orderModalTitle">ثبت سفارش</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
                     <input type="hidden" id="orderStoreId">
+                    <input type="hidden" id="orderId">
                     <div class="mb-3">
                         <label class="form-label">توضیحات (اختیاری)</label>
                         <textarea class="form-control" id="orderText" rows="2"></textarea>
@@ -367,10 +368,6 @@
                         <div id="noItemsMsg" class="text-center text-muted small">لیست خالی است</div>
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label">مبلغ کل (تومان)</label>
-                        <input type="number" class="form-control" id="orderAmount" placeholder="مبلغ نهایی فاکتور">
-                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">لغو</button>
@@ -454,6 +451,16 @@
 
                 if (storedStores) {
                     this.data.stores = JSON.parse(storedStores);
+                    // Ensure all orders have IDs (Backfill for legacy data)
+                    this.data.stores.forEach(store => {
+                        if (store.orders) {
+                            store.orders.forEach((order, index) => {
+                                if (!order.id) {
+                                    order.id = Date.now() + Math.random(); // Simple unique ID
+                                }
+                            });
+                        }
+                    });
                 }
 
                 if (storedProducts) {
@@ -733,8 +740,9 @@
 
             openOrderModal: function(storeId) {
                 document.getElementById('orderStoreId').value = storeId;
+                document.getElementById('orderId').value = ''; // Clear ID for new order
+                document.getElementById('orderModalTitle').textContent = 'ثبت سفارش';
                 document.getElementById('orderText').value = '';
-                document.getElementById('orderAmount').value = '';
 
                 // Init Items
                 this.currentOrderItems = [];
@@ -751,6 +759,37 @@
                 });
 
                 // Reset Counter
+                document.getElementById('orderCartonCount').value = 1;
+
+                const modal = new bootstrap.Modal(document.getElementById('orderModal'));
+                modal.show();
+            },
+
+            editOrder: function(storeId, orderId) {
+                const store = this.data.stores.find(s => s.id === storeId);
+                if (!store) return;
+                const order = store.orders.find(o => o.id == orderId);
+                if (!order) return;
+
+                document.getElementById('orderStoreId').value = storeId;
+                document.getElementById('orderId').value = orderId;
+                document.getElementById('orderModalTitle').textContent = 'ویرایش سفارش';
+                document.getElementById('orderText').value = order.text || '';
+
+                // Load Items (Deep copy to avoid mutation reference issues before save)
+                this.currentOrderItems = JSON.parse(JSON.stringify(order.items || []));
+                this.renderOrderItems();
+
+                // Populate Products Dropdown
+                const select = document.getElementById('orderProductSelect');
+                select.innerHTML = '<option value="">انتخاب کالا...</option>';
+                this.data.products.forEach(p => {
+                    const option = document.createElement('option');
+                    option.value = p.id;
+                    option.textContent = p.name;
+                    select.appendChild(option);
+                });
+
                 document.getElementById('orderCartonCount').value = 1;
 
                 const modal = new bootstrap.Modal(document.getElementById('orderModal'));
@@ -809,24 +848,36 @@
 
             saveOrder: function() {
                 const storeId = parseInt(document.getElementById('orderStoreId').value);
+                const orderId = document.getElementById('orderId').value;
                 const text = document.getElementById('orderText').value.trim();
-                const amount = document.getElementById('orderAmount').value.trim();
                 const items = this.currentOrderItems;
 
-                if (!amount && items.length === 0 && !text) {
-                     alert('لطفاً حداقل یک کالا یا توضیحات یا مبلغ وارد کنید.');
+                if (items.length === 0 && !text) {
+                     alert('لطفاً حداقل یک کالا یا توضیحات وارد کنید.');
                      return;
                 }
 
                 const store = this.data.stores.find(s => s.id === storeId);
                 if (store) {
-                    const order = {
-                        date: new Date().toLocaleDateString('fa-IR'),
-                        text,
-                        amount: amount ? parseInt(amount).toLocaleString() : '0',
-                        items: items
-                    };
-                    store.orders.unshift(order); // Add to beginning
+                    if (orderId) {
+                        // Update existing order
+                        const order = store.orders.find(o => o.id == orderId);
+                        if (order) {
+                            order.text = text;
+                            order.items = items;
+                            // Update date? usually not on edit, keep original date.
+                        }
+                    } else {
+                        // Create new order
+                        const order = {
+                            id: Date.now() + Math.random(),
+                            date: new Date().toLocaleDateString('fa-IR'),
+                            text,
+                            items: items
+                        };
+                        store.orders.unshift(order); // Add to beginning
+                    }
+
                     this.saveData();
 
                     // Close modal
@@ -968,7 +1019,9 @@
                                 ordersHtml += `<li class="d-flex flex-column mb-2 border-bottom pb-1">
                                     <div class="d-flex justify-content-between text-muted small">
                                         <span>${this.escapeHtml(o.date)}: ${this.escapeHtml(o.text)}</span>
-                                        <span>${this.escapeHtml(o.amount)} ت</span>
+                                        <button class="btn btn-link btn-sm p-0 text-decoration-none" onclick="app.editOrder(${store.id}, ${o.id})">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
                                     </div>
                                     ${itemsText}
                                 </li>`;
