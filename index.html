@@ -188,13 +188,19 @@
                 </button>
             </div>
 
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <input type="text" class="form-control" id="orderDateFilter" placeholder="فیلتر تاریخ (مثلاً ۱۴۰۳/۰۱/۰۱)..." oninput="app.renderAllOrders()">
+                </div>
+            </div>
+
             <div class="table-responsive bg-white rounded shadow-sm p-3">
                 <table class="table table-hover align-middle">
                     <thead class="table-light">
                         <tr>
                             <th>تاریخ</th>
                             <th>فروشگاه</th>
-                            <th>منطقه</th>
+                            <th>آدرس</th>
                             <th>اقلام سفارش</th>
                             <th>توضیحات</th>
                             <th class="text-end">عملیات</th>
@@ -970,6 +976,8 @@
             renderAllOrders: function() {
                 const list = document.getElementById('allOrdersList');
                 const noOrdersMsg = document.getElementById('noOrdersMsg');
+                const dateFilter = document.getElementById('orderDateFilter').value.trim();
+
                 if (!list) return;
 
                 // Flatten orders
@@ -979,17 +987,18 @@
                         allOrders.push({
                             ...order,
                             storeName: store.name,
-                            storeRegion: store.region,
+                            storeAddress: store.address,
                             storeId: store.id
                         });
                     });
                 });
 
-                // Sort by ID/Date desc (implicitly ID is somewhat timestamp based, or we rely on Date string?)
-                // Since Date is string, ID is better for strict chronological if generated via Date.now
-                // But legacy orders might have IDs generated later.
-                // Let's rely on array order from stores? No.
-                // Best effort: Sort by ID descending (newest first)
+                // Filter
+                if (dateFilter) {
+                    allOrders = allOrders.filter(order => order.date.includes(dateFilter));
+                }
+
+                // Sort by ID desc
                 allOrders.sort((a, b) => b.id - a.id);
 
                 list.innerHTML = '';
@@ -1007,7 +1016,7 @@
                         tr.innerHTML = `
                             <td>${this.escapeHtml(order.date)}</td>
                             <td>${this.escapeHtml(order.storeName)}</td>
-                            <td><span class="badge badge-region">${this.escapeHtml(order.storeRegion)}</span></td>
+                            <td><small class="text-muted">${this.escapeHtml(order.storeAddress || '-')}</small></td>
                             <td><small>${itemsText}</small></td>
                             <td><small class="text-muted">${this.escapeHtml(order.text)}</small></td>
                             <td class="text-end">
