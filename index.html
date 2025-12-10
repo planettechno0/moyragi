@@ -122,6 +122,12 @@
                             آمار فروش روزانه
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" onclick="app.switchView('orders')">
+                            <i class="bi bi-receipt me-1"></i>
+                            مدیریت سفارش‌ها
+                        </a>
+                    </li>
                 </ul>
             </div>
         </div>
@@ -130,45 +136,82 @@
     <!-- Main Container -->
     <div class="container">
 
-        <!-- Filters -->
-        <div class="row g-3 mb-4">
-            <div class="col-md-6">
-                <label class="form-label">فیلتر زمان</label>
-                <select class="form-select" id="filterDay" onchange="app.renderStores()">
-                    <option value="today" selected>برنامه امروز (هوشمند)</option>
-                    <option value="all">همه روزها</option>
-                    <option value="6">شنبه</option>
-                    <option value="0">یکشنبه</option>
-                    <option value="1">دوشنبه</option>
-                    <option value="2">سه‌شنبه</option>
-                    <option value="3">چهارشنبه</option>
-                    <option value="4">پنج‌شنبه</option>
-                    <option value="5">جمعه</option>
-                </select>
+        <!-- View: Dashboard -->
+        <div id="dashboardView">
+            <!-- Filters & Search -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                    <label class="form-label">جستجو</label>
+                    <input type="text" class="form-control" id="searchInput" placeholder="نام فروشگاه یا آدرس..." oninput="app.renderStores()">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">فیلتر زمان</label>
+                    <select class="form-select" id="filterDay" onchange="app.renderStores()">
+                        <option value="today" selected>برنامه امروز (هوشمند)</option>
+                        <option value="all">همه روزها</option>
+                        <option value="6">شنبه</option>
+                        <option value="0">یکشنبه</option>
+                        <option value="1">دوشنبه</option>
+                        <option value="2">سه‌شنبه</option>
+                        <option value="3">چهارشنبه</option>
+                        <option value="4">پنج‌شنبه</option>
+                        <option value="5">جمعه</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">فیلتر منطقه</label>
+                    <select class="form-select" id="filterRegion" onchange="app.renderStores()">
+                        <option value="all">همه مناطق</option>
+                        <!-- Options populated by JS -->
+                    </select>
+                </div>
             </div>
-            <div class="col-md-6">
-                <label class="form-label">فیلتر منطقه</label>
-                <select class="form-select" id="filterRegion" onchange="app.renderStores()">
-                    <option value="all">همه مناطق</option>
-                    <!-- Options populated by JS -->
-                </select>
+
+            <!-- Stores Grid -->
+            <div class="row g-3" id="storesContainer">
+                <!-- Content populated by JS -->
+            </div>
+
+            <!-- Empty State (Hidden by default) -->
+            <div id="emptyState" class="text-center py-5 d-none">
+                <i class="bi bi-shop display-1 text-muted"></i>
+                <p class="mt-3 text-muted">موردی یافت نشد یا لیستی وجود ندارد.</p>
             </div>
         </div>
 
-        <!-- Stores Grid -->
-        <div class="row g-3" id="storesContainer">
-            <!-- Content populated by JS -->
+        <!-- View: Orders Management -->
+        <div id="ordersView" class="d-none">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 class="fw-bold"><i class="bi bi-receipt me-2"></i>مدیریت سفارش‌ها</h4>
+                <button class="btn btn-outline-secondary" onclick="app.switchView('dashboard')">
+                    <i class="bi bi-arrow-right me-1"></i> بازگشت
+                </button>
+            </div>
+
+            <div class="table-responsive bg-white rounded shadow-sm p-3">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>تاریخ</th>
+                            <th>فروشگاه</th>
+                            <th>منطقه</th>
+                            <th>اقلام سفارش</th>
+                            <th>توضیحات</th>
+                            <th class="text-end">عملیات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="allOrdersList">
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+                <div id="noOrdersMsg" class="text-center text-muted py-4 d-none">هیچ سفارشی ثبت نشده است.</div>
+            </div>
         </div>
 
-        <!-- Empty State (Hidden by default) -->
-        <div id="emptyState" class="text-center py-5 d-none">
-            <i class="bi bi-shop display-1 text-muted"></i>
-            <p class="mt-3 text-muted">موردی یافت نشد یا لیستی وجود ندارد.</p>
-        </div>
     </div>
 
-    <!-- FAB: Add Store -->
-    <div class="fab-container">
+    <!-- FAB: Add Store (Only on Dashboard) -->
+    <div class="fab-container" id="fabContainer">
         <button class="fab-button" onclick="app.openAddStoreModal()" title="افزودن فروشگاه">
             <i class="bi bi-plus-lg"></i>
         </button>
@@ -391,6 +434,7 @@
                 products: []
             },
 
+            currentView: 'dashboard',
             currentOrderItems: [], // Temporary state for order modal
 
             // Map JS Date.getDay() to Persian names
@@ -415,11 +459,26 @@
                 this.loadData();
                 this.renderRegions(); // In modal and filters
                 this.renderStores();
+                this.switchView('dashboard'); // Default view
+            },
 
-                // We handle modal opening manually via openAddStoreModal and editStore
-                // so we don't need a generic listener to populate/reset.
-                // However, we should ensure the region dropdown is always fresh when opening.
-                // We will do this inside the open/edit functions.
+            switchView: function(viewName) {
+                this.currentView = viewName;
+                const dashboard = document.getElementById('dashboardView');
+                const orders = document.getElementById('ordersView');
+                const fab = document.getElementById('fabContainer');
+
+                if (viewName === 'dashboard') {
+                    dashboard.classList.remove('d-none');
+                    orders.classList.add('d-none');
+                    fab.classList.remove('d-none');
+                    this.renderStores(); // Re-render to ensure updates
+                } else if (viewName === 'orders') {
+                    dashboard.classList.add('d-none');
+                    orders.classList.remove('d-none');
+                    fab.classList.add('d-none');
+                    this.renderAllOrders();
+                }
             },
 
             openAddStoreModal: function() {
@@ -880,10 +939,88 @@
 
                     this.saveData();
 
+                    // Update UI based on current view
+                    if (this.currentView === 'orders') {
+                        this.renderAllOrders();
+                    }
+
                     // Close modal
                     const modalEl = document.getElementById('orderModal');
                     const modal = bootstrap.Modal.getInstance(modalEl);
                     modal.hide();
+                }
+            },
+
+            deleteOrder: function(storeId, orderId) {
+                if (confirm('آیا از حذف این سفارش مطمئن هستید؟')) {
+                    const store = this.data.stores.find(s => s.id === storeId);
+                    if (store) {
+                        store.orders = store.orders.filter(o => o.id != orderId);
+                        this.saveData();
+
+                        if (this.currentView === 'orders') {
+                            this.renderAllOrders();
+                        } else {
+                            this.renderStores(); // Update dashboard
+                        }
+                    }
+                }
+            },
+
+            renderAllOrders: function() {
+                const list = document.getElementById('allOrdersList');
+                const noOrdersMsg = document.getElementById('noOrdersMsg');
+                if (!list) return;
+
+                // Flatten orders
+                let allOrders = [];
+                this.data.stores.forEach(store => {
+                    store.orders.forEach(order => {
+                        allOrders.push({
+                            ...order,
+                            storeName: store.name,
+                            storeRegion: store.region,
+                            storeId: store.id
+                        });
+                    });
+                });
+
+                // Sort by ID/Date desc (implicitly ID is somewhat timestamp based, or we rely on Date string?)
+                // Since Date is string, ID is better for strict chronological if generated via Date.now
+                // But legacy orders might have IDs generated later.
+                // Let's rely on array order from stores? No.
+                // Best effort: Sort by ID descending (newest first)
+                allOrders.sort((a, b) => b.id - a.id);
+
+                list.innerHTML = '';
+                if (allOrders.length === 0) {
+                    noOrdersMsg.classList.remove('d-none');
+                } else {
+                    noOrdersMsg.classList.add('d-none');
+                    allOrders.forEach(order => {
+                        let itemsText = '-';
+                        if (order.items && order.items.length > 0) {
+                            itemsText = order.items.map(i => `${i.count} ${this.escapeHtml(i.productName)}`).join('، ');
+                        }
+
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td>${this.escapeHtml(order.date)}</td>
+                            <td>${this.escapeHtml(order.storeName)}</td>
+                            <td><span class="badge badge-region">${this.escapeHtml(order.storeRegion)}</span></td>
+                            <td><small>${itemsText}</small></td>
+                            <td><small class="text-muted">${this.escapeHtml(order.text)}</small></td>
+                            <td class="text-end">
+                                <button class="btn btn-sm btn-outline-primary me-1" onclick="app.editOrder(${order.storeId}, ${order.id})" title="ویرایش">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" onclick="app.deleteOrder(${order.storeId}, ${order.id})" title="حذف">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        `;
+                        list.appendChild(tr);
+                    });
                 }
             },
 
@@ -959,10 +1096,18 @@
 
                 const dayFilter = document.getElementById('filterDay').value;
                 const regionFilter = document.getElementById('filterRegion').value;
+                const searchQuery = document.getElementById('searchInput').value.trim().toLowerCase();
 
                 let currentDayIndex = new Date().getDay(); // 0-6
 
                 const filteredStores = this.data.stores.filter(store => {
+                    // Search Filter
+                    if (searchQuery) {
+                        const searchMatch = store.name.toLowerCase().includes(searchQuery) ||
+                                            (store.address && store.address.toLowerCase().includes(searchQuery));
+                        if (!searchMatch) return false;
+                    }
+
                     // Region Filter
                     if (regionFilter !== 'all' && store.region !== regionFilter) {
                         return false;
@@ -1019,9 +1164,14 @@
                                 ordersHtml += `<li class="d-flex flex-column mb-2 border-bottom pb-1">
                                     <div class="d-flex justify-content-between text-muted small">
                                         <span>${this.escapeHtml(o.date)}: ${this.escapeHtml(o.text)}</span>
-                                        <button class="btn btn-link btn-sm p-0 text-decoration-none" onclick="app.editOrder(${store.id}, ${o.id})">
-                                            <i class="bi bi-pencil"></i>
-                                        </button>
+                                        <div class="d-flex">
+                                            <button class="btn btn-link btn-sm p-0 text-decoration-none me-2" onclick="app.editOrder(${store.id}, ${o.id})">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                            <button class="btn btn-link btn-sm p-0 text-decoration-none text-danger" onclick="app.deleteOrder(${store.id}, ${o.id})">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
                                     </div>
                                     ${itemsText}
                                 </li>`;
