@@ -301,6 +301,10 @@
                             <input type="text" class="form-control" id="storeName" required>
                         </div>
                         <div class="mb-3">
+                            <label class="form-label">توضیحات</label>
+                            <textarea class="form-control" id="storeDescription" rows="2"></textarea>
+                        </div>
+                        <div class="mb-3">
                             <label class="form-label">آدرس</label>
                             <textarea class="form-control" id="storeAddress" rows="2"></textarea>
                         </div>
@@ -492,6 +496,7 @@
                 this.populateRegionDropdown('storeRegion'); // Ensure dropdown is populated
                 document.getElementById('addStoreForm').reset();
                 document.getElementById('storeId').value = '';
+                document.getElementById('storeDescription').value = '';
                 document.getElementById('storePhone').value = '';
                 document.getElementById('storeModalTitle').textContent = 'ثبت فروشگاه جدید';
 
@@ -711,6 +716,7 @@
             saveStore: function() {
                 const id = document.getElementById('storeId').value;
                 const name = document.getElementById('storeName').value.trim();
+                const description = document.getElementById('storeDescription').value.trim();
                 const address = document.getElementById('storeAddress').value.trim();
                 const phone = document.getElementById('storePhone').value.trim();
                 const region = document.getElementById('storeRegion').value;
@@ -732,6 +738,7 @@
                     const storeIndex = this.data.stores.findIndex(s => s.id == id);
                     if (storeIndex > -1) {
                         this.data.stores[storeIndex].name = name;
+                        this.data.stores[storeIndex].description = description;
                         this.data.stores[storeIndex].address = address;
                         this.data.stores[storeIndex].phone = phone;
                         this.data.stores[storeIndex].region = region;
@@ -743,6 +750,7 @@
                     const newStore = {
                         id: Date.now(),
                         name,
+                        description,
                         address,
                         phone,
                         region,
@@ -771,6 +779,7 @@
 
                 document.getElementById('storeId').value = store.id;
                 document.getElementById('storeName').value = store.name;
+                document.getElementById('storeDescription').value = store.description || '';
                 document.getElementById('storeAddress').value = store.address || '';
                 document.getElementById('storePhone').value = store.phone || '';
                 document.getElementById('storeRegion').value = store.region;
@@ -1215,6 +1224,7 @@
                                         <i class="bi bi-geo-alt-fill"></i> ${this.escapeHtml(store.region)}
                                     </h6>
                                     <p class="card-text small mb-2">${this.escapeHtml(store.address) || 'بدون آدرس'}</p>
+                                    ${store.description ? `<p class="card-text small mb-2 text-muted">${this.escapeHtml(store.description)}</p>` : ''}
                                     ${store.phone ? `<p class="card-text small mb-2"><i class="bi bi-telephone"></i> <a href="tel:${this.escapeHtml(store.phone)}" class="text-decoration-none">${this.escapeHtml(store.phone)}</a></p>` : ''}
 
                                     <div class="mb-3">
