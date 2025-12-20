@@ -140,11 +140,11 @@
         <div id="dashboardView">
             <!-- Filters & Search -->
             <div class="row g-3 mb-4">
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label">جستجو</label>
                     <input type="text" class="form-control" id="searchInput" placeholder="نام فروشگاه یا آدرس..." oninput="app.renderStores()">
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label">فیلتر زمان</label>
                     <select class="form-select" id="filterDay" onchange="app.renderStores()">
                         <option value="today" selected>برنامه امروز (هوشمند)</option>
@@ -158,11 +158,19 @@
                         <option value="5">جمعه</option>
                     </select>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label">فیلتر منطقه</label>
                     <select class="form-select" id="filterRegion" onchange="app.renderStores()">
                         <option value="all">همه مناطق</option>
                         <!-- Options populated by JS -->
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">احتمال خرید</label>
+                    <select class="form-select" id="filterProb" onchange="app.renderStores()">
+                        <option value="all">همه</option>
+                        <option value="high">زیاد</option>
+                        <option value="low">کم</option>
                     </select>
                 </div>
             </div>
@@ -305,6 +313,10 @@
                             <textarea class="form-control" id="storeDescription" rows="2"></textarea>
                         </div>
                         <div class="mb-3">
+                            <label class="form-label">نام فروشنده</label>
+                            <input type="text" class="form-control" id="storeSellerName">
+                        </div>
+                        <div class="mb-3">
                             <label class="form-label">آدرس</label>
                             <textarea class="form-control" id="storeAddress" rows="2"></textarea>
                         </div>
@@ -328,6 +340,14 @@
                                     <option value="night">شب</option>
                                 </select>
                             </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">احتمال خرید</label>
+                            <select class="form-select" id="storePurchaseProb">
+                                <option value="">نامشخص</option>
+                                <option value="high">زیاد</option>
+                                <option value="low">کم</option>
+                            </select>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">روزهای ویزیت</label>
@@ -497,7 +517,9 @@
                 document.getElementById('addStoreForm').reset();
                 document.getElementById('storeId').value = '';
                 document.getElementById('storeDescription').value = '';
+                document.getElementById('storeSellerName').value = '';
                 document.getElementById('storePhone').value = '';
+                document.getElementById('storePurchaseProb').value = '';
                 document.getElementById('storeModalTitle').textContent = 'ثبت فروشگاه جدید';
 
                 // Reset checkboxes
@@ -717,10 +739,12 @@
                 const id = document.getElementById('storeId').value;
                 const name = document.getElementById('storeName').value.trim();
                 const description = document.getElementById('storeDescription').value.trim();
+                const sellerName = document.getElementById('storeSellerName').value.trim();
                 const address = document.getElementById('storeAddress').value.trim();
                 const phone = document.getElementById('storePhone').value.trim();
                 const region = document.getElementById('storeRegion').value;
                 const idealTime = document.getElementById('storeIdealTime').value;
+                const purchaseProb = document.getElementById('storePurchaseProb').value;
 
                 // Get checked days
                 const checkedDays = [];
@@ -739,10 +763,12 @@
                     if (storeIndex > -1) {
                         this.data.stores[storeIndex].name = name;
                         this.data.stores[storeIndex].description = description;
+                        this.data.stores[storeIndex].sellerName = sellerName;
                         this.data.stores[storeIndex].address = address;
                         this.data.stores[storeIndex].phone = phone;
                         this.data.stores[storeIndex].region = region;
                         this.data.stores[storeIndex].idealTime = idealTime;
+                        this.data.stores[storeIndex].purchaseProb = purchaseProb;
                         this.data.stores[storeIndex].visitDays = checkedDays;
                     }
                 } else {
@@ -751,10 +777,12 @@
                         id: Date.now(),
                         name,
                         description,
+                        sellerName,
                         address,
                         phone,
                         region,
                         idealTime,
+                        purchaseProb,
                         visitDays: checkedDays,
                         visited: false,
                         orders: []
@@ -780,10 +808,12 @@
                 document.getElementById('storeId').value = store.id;
                 document.getElementById('storeName').value = store.name;
                 document.getElementById('storeDescription').value = store.description || '';
+                document.getElementById('storeSellerName').value = store.sellerName || '';
                 document.getElementById('storeAddress').value = store.address || '';
                 document.getElementById('storePhone').value = store.phone || '';
                 document.getElementById('storeRegion').value = store.region;
                 document.getElementById('storeIdealTime').value = store.idealTime || '';
+                document.getElementById('storePurchaseProb').value = store.purchaseProb || '';
                 document.getElementById('storeModalTitle').textContent = 'ویرایش فروشگاه';
 
                 // Reset and Set checkboxes
@@ -1119,6 +1149,7 @@
 
                 const dayFilter = document.getElementById('filterDay').value;
                 const regionFilter = document.getElementById('filterRegion').value;
+                const probFilter = document.getElementById('filterProb').value;
                 const searchQuery = document.getElementById('searchInput').value.trim().toLowerCase();
 
                 let currentDayIndex = new Date().getDay(); // 0-6
@@ -1136,6 +1167,11 @@
                         return false;
                     }
 
+                    // Probability Filter
+                    if (probFilter !== 'all' && store.purchaseProb !== probFilter) {
+                        return false;
+                    }
+
                     // Day Filter
                     if (dayFilter === 'all') {
                         return true;
@@ -1149,6 +1185,9 @@
                         return store.visitDays.includes(parseInt(dayFilter));
                     }
                 });
+
+                // Sort by ID descending (Newest first)
+                filteredStores.sort((a, b) => b.id - a.id);
 
                 container.innerHTML = '';
 
@@ -1170,6 +1209,13 @@
                         // Ideal Time Badge
                         if (store.idealTime) {
                             daysBadges += `<span class="badge bg-info text-dark me-1"><i class="bi bi-clock"></i> ${this.idealTimeMap[store.idealTime]}</span>`;
+                        }
+
+                        // Purchase Probability Badge
+                        if (store.purchaseProb) {
+                            const probText = store.purchaseProb === 'high' ? 'احتمال خرید: زیاد' : 'احتمال خرید: کم';
+                            const probClass = store.purchaseProb === 'high' ? 'bg-success' : 'bg-warning text-dark';
+                            daysBadges += `<span class="badge ${probClass} me-1"><i class="bi bi-graph-up"></i> ${probText}</span>`;
                         }
 
                         // Generate Order History (Last 3)
@@ -1225,6 +1271,7 @@
                                     </h6>
                                     <p class="card-text small mb-2">${this.escapeHtml(store.address) || 'بدون آدرس'}</p>
                                     ${store.description ? `<p class="card-text small mb-2 text-muted">${this.escapeHtml(store.description)}</p>` : ''}
+                                    ${store.sellerName ? `<p class="card-text small mb-2"><i class="bi bi-person"></i> ${this.escapeHtml(store.sellerName)}</p>` : ''}
                                     ${store.phone ? `<p class="card-text small mb-2"><i class="bi bi-telephone"></i> <a href="tel:${this.escapeHtml(store.phone)}" class="text-decoration-none">${this.escapeHtml(store.phone)}</a></p>` : ''}
 
                                     <div class="mb-3">
