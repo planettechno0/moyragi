@@ -572,12 +572,25 @@
             // --- Backup & Restore Logic ---
 
             backupData: function() {
-                const data = {
-                    regions: this.data.regions,
-                    stores: this.data.stores,
-                    products: this.data.products
+                const backupObj = {
+                    version: 2,
+                    timestamp: new Date().toISOString(),
+                    data: {}
                 };
-                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+
+                // Collect all keys from localStorage starting with 'visitor_'
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && key.startsWith('visitor_')) {
+                        try {
+                            backupObj.data[key] = JSON.parse(localStorage.getItem(key));
+                        } catch(e) {
+                            backupObj.data[key] = localStorage.getItem(key);
+                        }
+                    }
+                }
+
+                const blob = new Blob([JSON.stringify(backupObj, null, 2)], { type: 'application/json' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
@@ -596,15 +609,30 @@
                 reader.onload = (e) => {
                     try {
                         const data = JSON.parse(e.target.result);
-                        if (data.regions && data.stores) {
+
+                        // Check for V2 Backup
+                        if (data.version === 2 && data.data) {
+                            if(confirm('آیا مطمئن هستید؟ تمام داده‌های فعلی با فایل پشتیبان جایگزین خواهند شد.')) {
+                                // Restore all visitor_ keys
+                                Object.keys(data.data).forEach(key => {
+                                    if (key.startsWith('visitor_')) {
+                                        localStorage.setItem(key, JSON.stringify(data.data[key]));
+                                    }
+                                });
+                                this.loadData();
+                                this.renderRegions();
+                                alert('بازیابی نسخه جدید با موفقیت انجام شد.');
+                            }
+                        }
+                        // Legacy Backup Support
+                        else if (data.regions && data.stores) {
                             if(confirm('آیا مطمئن هستید؟ تمام داده‌های فعلی با فایل جایگزین خواهند شد.')) {
                                 this.data.regions = data.regions;
                                 this.data.stores = data.stores;
                                 this.data.products = data.products || []; // Optional backward compatibility
                                 this.saveData();
                                 this.renderRegions();
-                                // We also need to render products if the settings modal is open, but simple enough to just init
-                                alert('بازیابی با موفقیت انجام شد.');
+                                alert('بازیابی نسخه قدیمی با موفقیت انجام شد.');
                             }
                         } else {
                             alert('فایل انتخاب شده معتبر نیست.');
