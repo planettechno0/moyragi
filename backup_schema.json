@@ -1,0 +1,175 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Visitor App Backup Schema",
+  "description": "Schema for the backup JSON format (Version 2) of the Visitor App.",
+  "type": "object",
+  "required": [
+    "version",
+    "timestamp",
+    "data"
+  ],
+  "properties": {
+    "version": {
+      "type": "number",
+      "const": 2,
+      "description": "Backup version number. Must be 2 for this schema."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of when the backup was created."
+    },
+    "data": {
+      "type": "object",
+      "description": "Container for application data. Keys correspond to localStorage keys.",
+      "properties": {
+        "visitor_regions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of defined regions."
+        },
+        "visitor_products": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "number"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name"
+            ]
+          },
+          "description": "List of defined products."
+        },
+        "visitor_stores": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/store"
+          },
+          "description": "List of stores and their associated data."
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "definitions": {
+    "store": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "number",
+          "description": "Unique identifier (timestamp)."
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "sellerName": {
+          "type": "string"
+        },
+        "address": {
+          "type": "string"
+        },
+        "phone": {
+          "type": "string"
+        },
+        "region": {
+          "type": "string"
+        },
+        "idealTime": {
+          "type": "string",
+          "enum": [
+            "morning",
+            "noon",
+            "night",
+            ""
+          ]
+        },
+        "purchaseProb": {
+          "type": "string",
+          "enum": [
+            "high",
+            "low",
+            ""
+          ]
+        },
+        "visitDays": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 6
+          },
+          "description": "Days of the week to visit (0=Sunday, 6=Saturday)."
+        },
+        "visited": {
+          "type": "boolean"
+        },
+        "orders": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/order"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "region"
+      ]
+    },
+    "order": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "number"
+        },
+        "date": {
+          "type": "string",
+          "description": "Persian date string."
+        },
+        "text": {
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/orderItem"
+          }
+        }
+      },
+      "required": [
+        "id"
+      ]
+    },
+    "orderItem": {
+      "type": "object",
+      "properties": {
+        "productId": {
+          "type": "number"
+        },
+        "productName": {
+          "type": "string"
+        },
+        "count": {
+          "type": "number",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "productId",
+        "count"
+      ]
+    }
+  }
+}
